@@ -1,7 +1,11 @@
 <?php
-// Настройка заголовков для работы с Worker
+// Полностью отключаем вывод ошибок в текст, чтобы не ломать JSON
+error_reporting(0);
+ini_set('display_errors', 0);
+
+// Разрешаем запросы ототовсюду (важно для Cloudflare)
 header('Access-Control-Allow-Origin: *');
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=utf-8');
 
 $publicKey = "-----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAlBetA0wjbaj+h7oJ/d/h
@@ -18,18 +22,22 @@ Zb/Zq+kK2hSIhphY172Uvs8X2Qp2ac9UoTPM71tURsA9IvPNvUwSIo/aKlX5KE3I
 VE0tje7twWXL5Gb1sfcXRzsCAwEAAQ==
 -----END PUBLIC KEY-----";
 
-$url = $_GET['url'] ?? '';
+// Берем URL из GET-параметра
+$url = isset($_GET['url']) ? $_GET['url'] : '';
 
-if (!$url) {
-    echo json_encode(["error" => "No URL provided"]);
+if (empty($url)) {
+    echo json_encode(["error" => "empty_url"]);
     exit;
 }
 
-// Шифруем (используем PKCS1 для совместимости с Happ)
+// Попробуем зашифровать. Для HAPP чаще всего нужен именно PKCS1
 if (openssl_public_encrypt($url, $encrypted, $publicKey, OPENSSL_PKCS1_PADDING)) {
     echo json_encode([
         "crypt5" => "happ://crypt5/" . base64_encode($encrypted)
     ]);
 } else {
-    echo json_encode(["error" => "Encryption failed"]);
+    echo json_encode([
+        "error" => "openssl_fail",
+        "msg" => openssl_error_string()
+    ]);
 }
