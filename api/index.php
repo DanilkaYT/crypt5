@@ -1,9 +1,7 @@
 <?php
-// Отключаем все лишнее, чтобы в ответ не попали системные ошибки
 error_reporting(0);
 ini_set('display_errors', 0);
 
-// Твой публичный ключ
 $publicKey = "-----BEGIN PUBLIC KEY-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAlBetA0wjbaj+h7oJ/d/h
 pNrXvAcuhOdFGEFcfCxSWyLzWk4SAQ05gtaEGZyetTax2uqagi9HT6lapUSUe2S8
@@ -19,23 +17,27 @@ Zb/Zq+kK2hSIhphY172Uvs8X2Qp2ac9UoTPM71tURsA9IvPNvUwSIo/aKlX5KE3I
 VE0tje7twWXL5Gb1sfcXRzsCAwEAAQ==
 -----END PUBLIC KEY-----";
 
-// Получаем URL из запроса
 $urlToEncrypt = $_GET['url'] ?? '';
 
 if (!$urlToEncrypt) {
-    die("Error: No URL provided");
+    die("No URL provided");
 }
 
-// Шифруем ссылку с помощью RSA Public Key
-// ВАЖНО: Используем PKCS1_PADDING, так как Happ обычно ждет его
 if (openssl_public_encrypt($urlToEncrypt, $encrypted, $publicKey, OPENSSL_PKCS1_PADDING)) {
-    
-    // Формируем финальную строку
     $base64 = base64_encode($encrypted);
-    
-    // Выводим ТОЛЬКО готовую ссылку для Happ
-    echo "happ://crypt5/" . $base64;
+    $happLink = "happ://crypt5/" . $base64;
 
+    // --- МАГИЯ РЕДИРЕКТА ---
+    // Отправляем заголовок перемещения
+    header("Location: " . $happLink);
+    
+    // На случай, если браузер блокирует автоматический редирект, 
+    // выведем еще и HTML-кнопку для ручного нажатия
+    echo "<!DOCTYPE html><html><head><meta http-equiv='refresh' content='0;url=$happLink'></head>";
+    echo "<body style='display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;'>";
+    echo "<script>window.location.href = '$happLink';</script>";
+    echo "<a href='$happLink' style='padding:20px;background:#007bff;color:white;text-decoration:none;border-radius:10px;'>Открыть в Happ (если не открылось)</a>";
+    echo "</body></html>";
 } else {
-    echo "Error: Encryption failed";
+    echo "Encryption failed";
 }
