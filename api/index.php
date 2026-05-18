@@ -23,20 +23,24 @@ if (!$urlToEncrypt) {
     die("No URL provided");
 }
 
-if (openssl_public_encrypt($urlToEncrypt, $encrypted, $publicKey, OPENSSL_PKCS1_PADDING)) {
+// СОЗДАЕМ ПРАВИЛЬНЫЙ JSON ДЛЯ HAPP
+$data = json_encode([
+    "version" => 1,
+    "subscription_url" => $urlToEncrypt
+]);
+
+// Шифруем этот JSON
+if (openssl_public_encrypt($data, $encrypted, $publicKey, OPENSSL_PKCS1_PADDING)) {
     $base64 = base64_encode($encrypted);
     $happLink = "happ://crypt5/" . $base64;
 
-    // --- МАГИЯ РЕДИРЕКТА ---
-    // Отправляем заголовок перемещения
+    // Редирект в приложение
     header("Location: " . $happLink);
     
-    // На случай, если браузер блокирует автоматический редирект, 
-    // выведем еще и HTML-кнопку для ручного нажатия
     echo "<!DOCTYPE html><html><head><meta http-equiv='refresh' content='0;url=$happLink'></head>";
     echo "<body style='display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;'>";
     echo "<script>window.location.href = '$happLink';</script>";
-    echo "<a href='$happLink' style='padding:20px;background:#007bff;color:white;text-decoration:none;border-radius:10px;'>Открыть в Happ (если не открылось)</a>";
+    echo "<a href='$happLink' style='padding:20px;background:#007bff;color:white;text-decoration:none;border-radius:10px;'>Открыть в Happ</a>";
     echo "</body></html>";
 } else {
     echo "Encryption failed";
