@@ -3,33 +3,38 @@
 error_reporting(0);
 ini_set('display_errors', 0);
 
-// Заголовки для CORS (если будешь дергать скрипт из других мест)
+// Заголовки для CORS
 header('Access-Control-Allow-Origin: *');
 
-// 1. Получаем URL конфигурации
-$url = $_GET['url'] ?? '';
+// Железобетонный способ вытащить URL, даже если внутри него есть свои параметры (?token=...)
+$requestUri = $_SERVER['REQUEST_URI'] ?? '';
+$url = '';
 
-// Если GET пустой, пробуем вытащить из сырой строки (иногда спасает при кривых запросах)
-if (!$url && !empty($_SERVER['QUERY_STRING'])) {
-    $url = str_replace('url=', '', $_SERVER['QUERY_STRING']);
+// Ищем, где начинается 'url=' и забираем всё до конца строки
+$pos = strpos($requestUri, 'url=');
+if ($pos !== false) {
+    $url = substr($requestUri, $pos + 4);
+} else {
+    // Резервный вариант
+    $url = $_GET['url'] ?? '';
 }
 
 // Если URL вообще не передали — отдаем ошибку
 if (!$url) {
     header('Content-Type: application/json');
-    echo json_encode(["error" => "No URL provided"]);
+    echo json_encode(["error" => "No URL provided", "debug_uri" => $requestUri]);
     exit;
 }
 
 // 2. Готовим данные для POST-запроса к API Happ
 $postData = json_encode(['url' => $url]);
 
-// 3. Стучимся в API (используем HTTPS для надежности)
+// 3. Стучимся в API 
 $ch = curl_init("https://crypto.happ.su/api-v2.php");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
-curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // На всякий случай, если на хостинге проблемы с сертфикатами
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
     'Content-Type: application/json'
 ]);
@@ -41,13 +46,11 @@ curl_close($ch);
 // 4. Очищаем ответ
 $happLink = trim($response);
 
-// 5. Проверяем, что API вернул успешный статус и саму ссылку
+// 5. Проверяем, что API вернул успешный статус
 if ($httpCode === 200 && strpos($happLink, 'happ://crypt5/') !== false) {
     
-    // Мгновенный редирект. Если юзер с телефона, его сразу перекинет в приложение Happ
     header("Location: " . $happLink);
     
-    // Резервный HTML на случай, если браузер заблочил авто-редирект
     echo "<!DOCTYPE html><html><head><meta charset='UTF-8'>";
     echo "<meta name='viewport' content='width=device-width, initial-scale=1.0'>";
     echo "<meta http-equiv='refresh' content='0;url={$happLink}'></head>";
@@ -58,12 +61,13 @@ if ($httpCode === 200 && strpos($happLink, 'happ://crypt5/') !== false) {
     exit;
     
 } else {
-    // Если API упало или вернуло дичь, отдаем понятную ошибку
     header('Content-Type: application/json');
     echo json_encode([
         "error" => "Encryption failed at Happ API",
         "api_response" => htmlspecialchars($response),
         "http_code" => $httpCode
     ]);
+}
+?>
 }
 ?>
