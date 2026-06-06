@@ -3,8 +3,5 @@
     "api/happ.py": {
       "runtime": "python3.9"
     }
-  },
-  "routes": [
-    { "src": "/api/happ", "dest": "/api/happ.py" }
-  ]
+  }
 }
